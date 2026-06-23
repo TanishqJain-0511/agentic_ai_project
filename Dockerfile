@@ -1,30 +1,47 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim-bullseye
 
-# Set the working directory in the container
-WORKDIR /app/backend
+WORKDIR /workspace
 
-# Install system dependencies required for psycopg2 and other packages
+# Install system dependencies (lighter)
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
     libpq-dev \
-    build-essential \
-    pkg-config \
-    --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file into the working directory
+# Copy and install requirements in layers
 COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install in stages to avoid timeouts
+RUN pip install --no-cache-dir --timeout=1000 \
+    fastapi uvicorn psycopg2-binary sqlalchemy asyncpg \
+    python-dotenv alembic pgvector pydantic pydantic-settings \
+    redis celery python-jose[cryptography] passlib[bcrypt]
 
-# Copy the rest of the application code
+# Install ML packages separately (they're huge)
+RUN pip install --no-cache-dir --timeout=1000 \
+    numpy scipy pandas openpyxl pyyaml httpx requests
+
+# Install langchain and ML dependencies
+RUN pip install --no-cache-dir --timeout=1000 \
+    langchain langgraph langfuse
+
+# Optional: Install torch separately (it's huge)
+RUN pip install --no-cache-dir --timeout=1000 \
+    torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining packages
+RUN pip install --no-cache-dir --timeout=1000 \
+    sentence-transformers ragas deepeval ollama
+
+RUN pip install --no-cache-dir --timeout=1000 \
+    fastapi uvicorn psycopg2-binary sqlalchemy asyncpg \
+    python-dotenv alembic pgvector pydantic pydantic-settings \
+    email-validator \
+    redis celery python-jose[cryptography] passlib[bcrypt]
+
 COPY . .
 
-# Expose the port FastAPI will run on
 EXPOSE 8000
 
-# Command to run the application (using uvicorn)
-# Will be overridden by docker-compose, but good for standalone
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
