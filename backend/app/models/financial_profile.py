@@ -7,7 +7,7 @@ class FinancialProfile(Base):
 
     __tablename__ = "financial_profiles"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     annual_income = Column(Float, nullable=False)
     monthly_expenses = Column(Float, nullable=False)
     total_cash_savings = Column(Float, nullable=False)

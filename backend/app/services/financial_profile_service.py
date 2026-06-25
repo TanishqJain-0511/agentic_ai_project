@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from backend.app.models.financial_profile import FinancialProfile
-from backend.app.schemas.financial_profile import FinancialProfileCreate, FinancialProfileResponse
-from backend.app.schemas.user import UserCreate
+from backend.app.schemas.financial_profile import FinancialProfileCreate
 
 def create_financial_profile(db:Session, financial_profile_data:FinancialProfileCreate):
 

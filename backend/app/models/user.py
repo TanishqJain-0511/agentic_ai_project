@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String
-from backend.app.db.database import Base
 from sqlalchemy.orm import relationship
+from backend.app.db.database import Base
+
 
 class User(Base):
 
@@ -8,9 +9,20 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
-    field_description = Column(String, nullable=False)
 
-    financial_profiles = relationship(
+    financial_profile = relationship(
         "FinancialProfile",
         back_populates="user",
+        uselist=False
+    )
+
+    investment_goals = relationship(
+        "InvestmentGoal",
+        back_populates="user"
+    )
+
+    risk_assessment = relationship(
+        "RiskAssessment",
+        back_populates="user",
+        uselist=False,
     )

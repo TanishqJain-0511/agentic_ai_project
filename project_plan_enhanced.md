@@ -582,7 +582,7 @@ PostgreSQL
 
 ---------------------------------------------------------------------------------------------------
 
-# Phase 2: Core Wealth Management Data Model
+# Phase 2: Core Wealth Management Data Model ✅ COMPLETE
 
 ## Objective
 
@@ -797,7 +797,7 @@ At the end of Phase 2, the application contains all user financial data required
 
 ------------------------------------------------------------------------
 
-# Phase 3: Financial Health Engine
+# Phase 3: Financial Health Engine ✅ COMPLETE
 
 Implement:
 
@@ -806,116 +806,284 @@ Implement:
 -   Emergency Fund Months
 -   Net Worth
 
+## What Was Built
+
+### Files Created
+
+```text
+backend/app/schemas/financial_health.py      ← FinancialHealthResponse schema
+backend/app/services/financial_health_service.py  ← compute_financial_health() + status helpers
+```
+
+### Computations
+
+| Metric                 | Formula                                           |
+|------------------------|---------------------------------------------------|
+| net_worth              | cash_savings + existing_investments - total_debt  |
+| monthly_surplus        | (annual_income / 12) - monthly_expenses           |
+| savings_rate           | (monthly_surplus / monthly_income) × 100          |
+| dti                    | (total_debt / annual_income) × 100                |
+| emergency_fund_months  | total_cash_savings / monthly_expenses             |
+
+### Status Labels (for explanation layer later)
+
+| Metric                 | Thresholds                                   |
+|------------------------|----------------------------------------------|
+| savings_rate_status    | high ≥ 20% · normal ≥ 10% · low < 10%          |
+| dti_status             | healthy < 36% · moderate 36–50% · high > 50% |
+| emergency_fund_status  | adequate ≥ 6 months · low 3–6 · critical < 3 |
+
 ### Deliverable
 
 Endpoint:
 
-`POST /financial-health`
+`GET /financial-health/{user_id}`
 
 Returns:
 
 -   net_worth
--   dti
--   savings_rate
--   emergency_months
+-   monthly_surplus
+-   savings_rate + savings_rate_status
+-   dti + dti_status
+-   emergency_fund_months + emergency_fund_status
 
 ------------------------------------------------------------------------
 
-# Phase 4: Risk Scoring Service
+# Phase 4: Risk Scoring Service ✅ COMPLETE
 
 Inputs:
 
 -   Age
 -   Goal Horizon
 -   Income Stability
--   Risk Questionnaire
+-   Risk Questionnaire (fetched from DB via user_id)
 
 Output:
 
--   Risk Score
+-   Risk Score (0–100)
 -   Risk Tier
 
-Suggested tiers:
+## What Was Built
 
--   Safest
--   Safer
--   Riskier
--   Riskiest
+### Files Created
+
+```text
+backend/app/schemas/risk_score.py          ← RiskScoreRequest, RiskScoreResponse
+backend/app/services/risk_scoring_service.py  ← compute_risk_score() + helpers
+```
+
+### Scoring Breakdown (max 100 pts)
+
+| Component | Max pts | Logic |
+|---|---|---|
+| Age | 30 | <30→30, <40→25, <50→20, <60→10, 60+→5 |
+| Goal horizon | 30 | >10yr→30, ≥7→25, ≥5→20, ≥3→10, <3→5 |
+| Income stability | 20 | stable→20, semi_stable→12, variable→6 |
+| Questionnaire | 20 | 5 questions × 4 pts each |
+
+### Questionnaire Keys (stored in risk_assessments.questionnaire_answers)
+
+| Key | Accepted Values |
+|---|---|
+| market_drop_reaction | buy_more · hold · sell |
+| investment_experience | expert · intermediate · beginner |
+| primary_goal | wealth_growth · balanced · capital_preservation |
+| loss_tolerance_percent | >20 · 10-20 · <10 |
+| investment_knowledge | high · medium · low |
+
+### Risk Tiers
+
+| Score | Tier |
+|---|---|
+| 0–25 | Safest |
+| 26–50 | Safer |
+| 51–75 | Riskier |
+| 76–100 | Riskiest |
+
+### Side Effect
+
+Persists computed `risk_score` and `risk_tier` back into the `risk_assessments` row for the user.
 
 ### Deliverable
 
 `POST /risk-score`
 
+Body: user_id, age, goal_horizon_years, income_stability
+
+Returns: risk_score, risk_tier, score_breakdown
+
 ------------------------------------------------------------------------
 
-# Phase 5: Allocation Engine
+# Phase 5: Allocation Engine ✅ COMPLETE
 
 Create deterministic allocation rules.
 
-Example:
+## What Was Built
 
-  Risk Tier   Equity   Debt
-  ----------- -------- ------
-  Safest      20%      80%
-  Safer       40%      60%
-  Riskier     70%      30%
-  Riskiest    90%      10%
+### Files Created
 
-Adjust allocations based on goal horizon.
+```text
+backend/app/schemas/allocation.py         ← AllocationRequest, AllocationResponse
+backend/app/services/allocation_service.py  ← compute_allocation() + _equity_cap()
+```
+
+### Base Allocations by Risk Tier
+
+| Risk Tier | Equity | Debt | Gold |
+|---|---|---|---|
+| Safest | 20% | 75% | 5% |
+| Safer | 40% | 55% | 5% |
+| Riskier | 70% | 25% | 5% |
+| Riskiest | 90% | 5% | 5% |
+
+### Horizon Cap (equity ceiling for short goals)
+
+| Goal Horizon | Equity Cap | Reason |
+|---|---|---|
+| < 3 years | 30% | Cannot afford volatility near goal date |
+| 3–5 years | 50% | Moderate protection needed |
+| ≥ 5 years | No cap | Sufficient time to recover |
+
+When equity is capped, the excess is moved to debt. `horizon_capped: true` is returned to signal this adjustment was made.
 
 ### Deliverable
 
-Portfolio allocation recommendation.
+`POST /allocation`
+
+Body: user_id, goal_horizon_years
+
+Returns: equity_pct, debt_pct, gold_pct, risk_tier, horizon_capped
 
 ------------------------------------------------------------------------
 
-# Phase 6: Fund Data Layer
+# Phase 6: Fund Data Layer ✅ COMPLETE
 
-Integrate:
+## What Was Built
 
--   MFAPI.in
+### Files Created
 
-Store:
+```text
+backend/app/models/mutual_fund.py          ← MutualFund ORM model
+backend/app/data/fund_metadata.json        ← Curated metadata for 10 funds
+backend/app/schemas/fund.py                ← FundResponse, FundSyncResponse
+backend/app/services/fund_data_service.py  ← sync_funds(), get_all_funds(), get_fund_by_scheme_code()
+```
 
--   Scheme Code
--   Scheme Name
--   NAV
--   Date
+### MutualFund Table Columns
 
-Create curated metadata:
+| Column | Type | Source |
+|---|---|---|
+| scheme_code | String (unique) | MFAPI / metadata |
+| scheme_name | String | MFAPI live fetch |
+| nav | Float | MFAPI live fetch |
+| nav_date | String | MFAPI live fetch |
+| category | String | fund_metadata.json |
+| risk_grade | String | fund_metadata.json |
+| expense_ratio | Float | fund_metadata.json |
+| aum | Float (crores) | fund_metadata.json |
+| last_updated | DateTime | auto on upsert |
 
--   Expense Ratio
--   AUM
--   Category
--   Risk Grade
+### Curated Fund List (fund_metadata.json)
 
-### Deliverable
+10 funds across categories: Flexi Cap, Large Cap, Mid Cap, Small Cap, Hybrid, Index, Gilt, Gold
 
-`GET /funds`
+### Sync Logic
 
-Returns real mutual fund data.
+`POST /funds/sync` — for each scheme_code in metadata:
+1. Hits `https://api.mfapi.in/mf/{scheme_code}` for live scheme_name + NAV
+2. Merges with curated expense_ratio, AUM, category, risk_grade
+3. Upserts into `mutual_funds` table (update if exists, insert if new)
+4. Skips gracefully on network/API failure
+
+### Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `POST /funds/sync` | Fetch live NAV from MFAPI, upsert into DB |
+| `GET /funds` | List all funds (optional ?category= and ?risk_grade= filters) |
+| `GET /funds/{scheme_code}` | Get single fund by scheme code |
+
+### Dependency Added
+
+`requests` added to requirements.txt (rebuild Docker image before testing)
 
 ------------------------------------------------------------------------
 
-# Phase 7: Fund Research Agent
+# Phase 7: Fund Research Agent ✅ COMPLETE
 
-First genuine agent.
+First genuine agent. Uses LangGraph + Ollama (Llama 3.1) with tool-calling.
 
-Tools:
+## What Was Built
 
-1.  Fund Metadata Search
-2.  Factsheet Search
-3.  MFAPI Lookup
+### Files Created
 
-Behavior:
+```text
+backend/app/agents/__init__.py
+backend/app/agents/fund_research_agent.py   ← LangGraph graph + 3 tools
+backend/app/schemas/fund_research.py        ← FundResearchRequest, FundResearchResponse
+backend/app/services/fund_research_service.py ← run_fund_research() with error handling
+```
 
--   Search matching funds
--   If insufficient results, broaden search
--   Retrieve factsheets for borderline cases
+### LangGraph Graph Structure
+
+```
+START → agent_node → (tool_calls?) → tool_node → agent_node (loop)
+                   → (no tool_calls) → END
+```
+
+### Tools (closures bound to DB session)
+
+| Tool | Purpose |
+|---|---|
+| `search_funds_by_category(category)` | Primary search — queries mutual_funds by category |
+| `search_funds_by_risk_grade(risk_grade)` | Broadened search — used when category returns 0 results |
+| `get_fund_details(scheme_code)` | Verify a specific fund before recommending |
+
+### Search Strategy (in system prompt)
+
+| Asset Class | Risk Tier | Try First | Broaden To |
+|---|---|---|---|
+| Equity | Safest/Safer | Large Cap → Index | risk_grade=Very High |
+| Equity | Riskier | Mid Cap → Flexi Cap | risk_grade=Very High |
+| Equity | Riskiest | Small Cap → Mid Cap | risk_grade=Very High |
+| Debt | Any | Gilt | risk_grade=Moderate |
+| Gold | Any | Gold | risk_grade=High |
+
+### Error Handling
+
+- If Ollama is unreachable → returns `status: "ollama_unavailable"` with setup instructions
+- Any other error → returns `status: "error"` with error message
+- Never raises HTTP 500 — always returns a structured response
 
 ### Deliverable
 
-Allocation → Recommended funds.
+`POST /fund-research`
+
+Body: user_id, equity_pct, debt_pct, gold_pct, risk_tier
+
+Returns: agent_response (LLM text with recommendations), status
+
+### Dependencies Added
+
+```
+langgraph
+langchain
+langchain-core
+langchain-ollama
+```
+
+### To Activate
+
+```bash
+# 1. Rebuild Docker image (new deps)
+docker-compose down && docker-compose up --build
+
+# 2. Start Ollama separately (not in Docker yet)
+ollama serve
+ollama pull llama3.1
+
+# 3. Update OLLAMA_HOST in .env if needed
+```
 
 ------------------------------------------------------------------------
 

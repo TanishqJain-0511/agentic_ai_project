@@ -21,5 +21,7 @@ services:
       - postgres
     env_file:
       - .env
+    volumes:
+      - .:/workspace
 volumes:
-    postgres_data:
+  postgres_data:
