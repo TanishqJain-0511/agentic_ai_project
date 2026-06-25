@@ -8,6 +8,7 @@ pydantic
 email-validator
 pydantic-settings
 requests
+httpx
 langgraph
 langchain
 langchain-core

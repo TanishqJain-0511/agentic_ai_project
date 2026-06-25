@@ -874,33 +874,33 @@ backend/app/services/risk_scoring_service.py  ← compute_risk_score() + helpers
 
 ### Scoring Breakdown (max 100 pts)
 
-| Component | Max pts | Logic |
-|---|---|---|
-| Age | 30 | <30→30, <40→25, <50→20, <60→10, 60+→5 |
-| Goal horizon | 30 | >10yr→30, ≥7→25, ≥5→20, ≥3→10, <3→5 |
-| Income stability | 20 | stable→20, semi_stable→12, variable→6 |
-| Questionnaire | 20 | 5 questions × 4 pts each |
+| Component        | Max pts | Logic                                 |
+|------------------|---------|---------------------------------------|
+| Age              | 30      | <30→30, <40→25, <50→20, <60→10, 60+→5 |
+| Goal horizon     | 30      | >10yr→30, ≥7→25, ≥5→20, ≥3→10, <3→5   |
+| Income stability | 20      | stable→20, semi_stable→12, variable→6 |
+| Questionnaire    | 20      | 5 questions × 4 pts each              |
 
 ### Questionnaire Keys (stored in risk_assessments.questionnaire_answers)
 
-| Key | Accepted Values |
-|---|---|
-| market_drop_reaction | buy_more · hold · sell |
-| investment_experience | expert · intermediate · beginner |
-| primary_goal | wealth_growth · balanced · capital_preservation |
-| loss_tolerance_percent | >20 · 10-20 · <10 |
-| investment_knowledge | high · medium · low |
+| Key                    | Accepted Values                                 |
+|------------------------|-------------------------------------------------|
+| market_drop_reaction   | buy_more · hold · sell                          |
+| investment_experience  | expert · intermediate · beginner                |
+| primary_goal           | wealth_growth · balanced · capital_preservation |
+| loss_tolerance_percent | >20 · 10-20 · <10                               |
+| investment_knowledge   | high · medium · low                             |
 
 ### Risk Tiers
 
-| Score | Tier |
-|---|---|
-| 0–25 | Safest |
-| 26–50 | Safer |
-| 51–75 | Riskier |
+| Score  | Tier     |
+|--------|----------|
+| 0–25   | Safest   |
+| 26–50  | Safer    |
+| 51–75  | Riskier  |
 | 76–100 | Riskiest |
 
-### Side Effect
+### Side Effect/Process
 
 Persists computed `risk_score` and `risk_tier` back into the `risk_assessments` row for the user.
 
@@ -930,19 +930,19 @@ backend/app/services/allocation_service.py  ← compute_allocation() + _equity_c
 ### Base Allocations by Risk Tier
 
 | Risk Tier | Equity | Debt | Gold |
-|---|---|---|---|
-| Safest | 20% | 75% | 5% |
-| Safer | 40% | 55% | 5% |
-| Riskier | 70% | 25% | 5% |
-| Riskiest | 90% | 5% | 5% |
+|-----------|--------|------|------|
+| Safest    | 20%    | 75%  | 5%   |
+| Safer     | 40%    | 55%  | 5%   |
+| Riskier   | 65%    | 25%  | 10%  |
+| Riskiest  | 85%    | 5%   | 10%  |
 
 ### Horizon Cap (equity ceiling for short goals)
 
-| Goal Horizon | Equity Cap | Reason |
-|---|---|---|
-| < 3 years | 30% | Cannot afford volatility near goal date |
-| 3–5 years | 50% | Moderate protection needed |
-| ≥ 5 years | No cap | Sufficient time to recover |
+| Goal Horizon | Equity Cap | Reason                                  |
+|--------------|------------|-----------------------------------------|
+| < 3 years    | 30%        | Cannot afford volatility near goal date |
+| 3–5 years    | 50%        | Moderate protection needed              |
+| ≥ 5 years    | No cap     | Sufficient time to recover              |
 
 When equity is capped, the excess is moved to debt. `horizon_capped: true` is returned to signal this adjustment was made.
 
@@ -963,25 +963,25 @@ Returns: equity_pct, debt_pct, gold_pct, risk_tier, horizon_capped
 ### Files Created
 
 ```text
-backend/app/models/mutual_fund.py          ← MutualFund ORM model
-backend/app/data/fund_metadata.json        ← Curated metadata for 10 funds
-backend/app/schemas/fund.py                ← FundResponse, FundSyncResponse
-backend/app/services/fund_data_service.py  ← sync_funds(), get_all_funds(), get_fund_by_scheme_code()
+backend/app/models/mutual_fund.py                 ← MutualFund ORM model
+backend/app/data/fund_metadata.json               ← Curated metadata for 10 funds
+backend/app/schemas/mutual_fund.py                ← MutualFundResponse, MutualFundSyncResponse
+backend/app/services/mutual_fund_data_service.py  ← sync_mutual_funds(), get_all_mutual_funds(), get_mutual_fund_by_scheme_code()
 ```
 
 ### MutualFund Table Columns
 
-| Column | Type | Source |
-|---|---|---|
-| scheme_code | String (unique) | MFAPI / metadata |
-| scheme_name | String | MFAPI live fetch |
-| nav | Float | MFAPI live fetch |
-| nav_date | String | MFAPI live fetch |
-| category | String | fund_metadata.json |
-| risk_grade | String | fund_metadata.json |
-| expense_ratio | Float | fund_metadata.json |
-| aum | Float (crores) | fund_metadata.json |
-| last_updated | DateTime | auto on upsert |
+| Column        | Type            | Source             |
+|---------------|-----------------|--------------------|
+| scheme_code   | String (unique) | MFAPI / metadata   |
+| scheme_name   | String          | MFAPI live fetch   |
+| nav           | Float           | MFAPI live fetch   |
+| nav_date      | String          | MFAPI live fetch   |
+| category      | String          | fund_metadata.json |
+| risk_grade    | String          | fund_metadata.json |
+| expense_ratio | Float           | fund_metadata.json |
+| aum           | Float (crores)  | fund_metadata.json |
+| last_updated  | DateTime        | auto on upsert     |
 
 ### Curated Fund List (fund_metadata.json)
 
@@ -989,7 +989,7 @@ backend/app/services/fund_data_service.py  ← sync_funds(), get_all_funds(), ge
 
 ### Sync Logic
 
-`POST /funds/sync` — for each scheme_code in metadata:
+`POST /mutual-funds/sync` — for each scheme_code in metadata:
 1. Hits `https://api.mfapi.in/mf/{scheme_code}` for live scheme_name + NAV
 2. Merges with curated expense_ratio, AUM, category, risk_grade
 3. Upserts into `mutual_funds` table (update if exists, insert if new)
@@ -997,11 +997,11 @@ backend/app/services/fund_data_service.py  ← sync_funds(), get_all_funds(), ge
 
 ### Endpoints
 
-| Endpoint | Description |
-|---|---|
-| `POST /funds/sync` | Fetch live NAV from MFAPI, upsert into DB |
-| `GET /funds` | List all funds (optional ?category= and ?risk_grade= filters) |
-| `GET /funds/{scheme_code}` | Get single fund by scheme code |
+| Endpoint                          | Description                                                   |
+|-----------------------------------|---------------------------------------------------------------|
+| `POST /mutual-funds/sync`         | Fetch live NAV from MFAPI, upsert into DB                     |
+| `GET /mutual-funds`               | List all funds (optional ?category= and ?risk_grade= filters) |
+| `GET /mutual-funds/{scheme_code}` | Get single fund by scheme code                                |
 
 ### Dependency Added
 
@@ -1084,6 +1084,34 @@ ollama pull llama3.1
 
 # 3. Update OLLAMA_HOST in .env if needed
 ```
+
+------------------------------------------------------------------------
+
+# Pre-Phase 9 Migration: Async DB Stack
+
+**Must complete before starting Phase 9 (Compliance Agent).**
+
+LangGraph agents are naturally async. Once agents need DB access, sync SQLAlchemy causes event-loop blocking and `asyncio.run()` workarounds. Migrate the DB layer before this becomes painful.
+
+## What to change
+
+| Component | From | To |
+|---|---|---|
+| Driver | `psycopg2-binary` | `asyncpg` |
+| Session | `Session` | `AsyncSession` |
+| `get_db()` | sync generator | async generator |
+| Queries | `db.query(Model).filter(...)` | `await db.execute(select(Model).where(...))` |
+| Endpoints | `def` | `async def` |
+| Service functions | `def` | `async def` |
+
+## Files to touch
+- `backend/app/db/database.py` — engine → `create_async_engine`, `AsyncSession`
+- `backend/app/db/init_db.py` — `async_engine.begin()` + `run_async_in_transaction`
+- All files in `backend/app/services/`
+- `backend/app/main.py` — all endpoints
+
+## Why not now
+Current phases (1–8) use sync SQLAlchemy cleanly. Migration before Phase 9 avoids rewriting everything twice while keeping the DB layer consistent throughout.
 
 ------------------------------------------------------------------------
 

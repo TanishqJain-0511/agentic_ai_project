@@ -1,0 +1,72 @@
+[
+  {
+    "scheme_code": "122639",
+    "category": "Flexi Cap",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.63,
+    "aum_in_crores": 68000
+  },
+  {
+    "scheme_code": "120503",
+    "category": "Large Cap",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.45,
+    "aum_in_crores": 32000
+  },
+  {
+    "scheme_code": "118989",
+    "category": "Large Cap",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.52,
+    "aum_in_crores": 41000
+  },
+  {
+    "scheme_code": "120505",
+    "category": "Mid Cap",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.77,
+    "aum_in_crores": 65000
+  },
+  {
+    "scheme_code": "118778",
+    "category": "Small Cap",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.68,
+    "aum_in_crores": 45000
+  },
+  {
+    "scheme_code": "119598",
+    "category": "Large Cap",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.83,
+    "aum_in_crores": 44000
+  },
+  {
+    "scheme_code": "118701",
+    "category": "Hybrid",
+    "risk_grade": "High",
+    "expense_ratio": 0.74,
+    "aum_in_crores": 85000
+  },
+  {
+    "scheme_code": "120716",
+    "category": "Index",
+    "risk_grade": "Very High",
+    "expense_ratio": 0.20,
+    "aum_in_crores": 15000
+  },
+  {
+    "scheme_code": "119027",
+    "category": "Gilt",
+    "risk_grade": "Moderate",
+    "expense_ratio": 0.46,
+    "aum_in_crores": 8000
+  },
+  {
+    "scheme_code": "118825",
+    "category": "Gold",
+    "risk_grade": "High",
+    "expense_ratio": 0.14,
+    "aum_in_crores": 3000
+  }
+]
