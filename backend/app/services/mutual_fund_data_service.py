@@ -3,12 +3,15 @@ import os
 import asyncio
 import httpx
 from typing import List, Optional, Tuple
-from sqlalchemy.orm import Session
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.mutual_fund import MutualFund
 
 MFAPI_BASE = "https://api.mfapi.in/mf"
 _METADATA_PATH = os.path.join(os.path.dirname(__file__), "../data/mutual_fund_metadata.json")
-_MAX_CONCURRENT = 10  # max parallel HTTP requests
+_MAX_CONCURRENT = 10
 
 
 def _load_curated_metadata() -> dict:
@@ -64,18 +67,15 @@ async def _fetch_all_funds(metadata: dict) -> Tuple[List[dict], int]:
     return fetched, failed
 
 
-def sync_mutual_funds(db: Session) -> dict:
+async def sync_mutual_funds(db: AsyncSession) -> dict:
     metadata = _load_curated_metadata()
+    fetched, failed = await _fetch_all_funds(metadata)
 
-    # Fetch all funds in parallel, then write to DB in a single batch
-    fetched, failed = asyncio.run(_fetch_all_funds(metadata))
-
-    existing = {
-        f.scheme_code: f
-        for f in db.query(MutualFund)
-        .filter(MutualFund.scheme_code.in_([d["scheme_code"] for d in fetched]))
-        .all()
-    }
+    scheme_codes = [d["scheme_code"] for d in fetched]
+    existing_result = await db.execute(
+        select(MutualFund).where(MutualFund.scheme_code.in_(scheme_codes))
+    )
+    existing = {f.scheme_code: f for f in existing_result.scalars().all()}
 
     for fund_data in fetched:
         fund = existing.get(fund_data["scheme_code"])
@@ -85,7 +85,7 @@ def sync_mutual_funds(db: Session) -> dict:
         else:
             db.add(MutualFund(**fund_data))
 
-    db.commit()
+    await db.commit()
 
     synced = len(fetched)
     return {
@@ -95,14 +95,22 @@ def sync_mutual_funds(db: Session) -> dict:
     }
 
 
-def get_all_mutual_funds(db: Session, category: Optional[str] = None, risk_grade: Optional[str] = None):
-    query = db.query(MutualFund)
+async def get_all_mutual_funds(
+    db: AsyncSession,
+    category: Optional[str] = None,
+    risk_grade: Optional[str] = None,
+):
+    query = select(MutualFund)
     if category:
-        query = query.filter(MutualFund.category == category)
+        query = query.where(MutualFund.category == category)
     if risk_grade:
-        query = query.filter(MutualFund.risk_grade == risk_grade)
-    return query.all()
+        query = query.where(MutualFund.risk_grade == risk_grade)
+    result = await db.execute(query)
+    return result.scalars().all()
 
 
-def get_mutual_fund_by_scheme_code(db: Session, scheme_code: str):
-    return db.query(MutualFund).filter(MutualFund.scheme_code == scheme_code).first()
+async def get_mutual_fund_by_scheme_code(db: AsyncSession, scheme_code: str):
+    result = await db.execute(
+        select(MutualFund).where(MutualFund.scheme_code == scheme_code)
+    )
+    return result.scalar_one_or_none()

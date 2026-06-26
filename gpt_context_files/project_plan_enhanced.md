@@ -1019,9 +1019,9 @@ First genuine agent. Uses LangGraph + Ollama (Llama 3.1) with tool-calling.
 
 ```text
 backend/app/agents/__init__.py
-backend/app/agents/fund_research_agent.py   ← LangGraph graph + 3 tools
-backend/app/schemas/fund_research.py        ← FundResearchRequest, FundResearchResponse
-backend/app/services/fund_research_service.py ← run_fund_research() with error handling
+backend/app/agents/mutual_fund_research_agent.py   ← LangGraph graph + 3 tools
+backend/app/schemas/mutual_fund_research.py        ← MutualFundResearchRequest, MutualFundResearchResponse
+backend/app/services/mutual_fund_research_service.py ← run_mutual_fund_research() with error handling
 ```
 
 ### LangGraph Graph Structure
@@ -1033,21 +1033,21 @@ START → agent_node → (tool_calls?) → tool_node → agent_node (loop)
 
 ### Tools (closures bound to DB session)
 
-| Tool | Purpose |
-|---|---|
-| `search_funds_by_category(category)` | Primary search — queries mutual_funds by category |
+| Tool                                     | Purpose                                                 |
+|------------------------------------------|---------------------------------------------------------|
+| `search_funds_by_category(category)`     | Primary search — queries mutual_funds by category       |
 | `search_funds_by_risk_grade(risk_grade)` | Broadened search — used when category returns 0 results |
-| `get_fund_details(scheme_code)` | Verify a specific fund before recommending |
+| `get_fund_details(scheme_code)`          | Verify a specific fund before recommending              |
 
 ### Search Strategy (in system prompt)
 
-| Asset Class | Risk Tier | Try First | Broaden To |
-|---|---|---|---|
-| Equity | Safest/Safer | Large Cap → Index | risk_grade=Very High |
-| Equity | Riskier | Mid Cap → Flexi Cap | risk_grade=Very High |
-| Equity | Riskiest | Small Cap → Mid Cap | risk_grade=Very High |
-| Debt | Any | Gilt | risk_grade=Moderate |
-| Gold | Any | Gold | risk_grade=High |
+| Asset Class | Risk Tier    | Try First           | Broaden To           |
+|-------------|--------------|---------------------|----------------------|
+| Equity      | Safest/Safer | Large Cap → Index   | risk_grade=Very High |
+| Equity      | Riskier      | Mid Cap → Flexi Cap | risk_grade=Very High |
+| Equity      | Riskiest     | Small Cap → Mid Cap | risk_grade=Very High |
+| Debt        | Any          | Gilt                | risk_grade=Moderate  |
+| Gold        | Any          | Gold                | risk_grade=High      |
 
 ### Error Handling
 
@@ -1080,38 +1080,10 @@ docker-compose down && docker-compose up --build
 
 # 2. Start Ollama separately (not in Docker yet)
 ollama serve
-ollama pull llama3.1
+ollama pull llama3.2:3b
 
 # 3. Update OLLAMA_HOST in .env if needed
 ```
-
-------------------------------------------------------------------------
-
-# Pre-Phase 9 Migration: Async DB Stack
-
-**Must complete before starting Phase 9 (Compliance Agent).**
-
-LangGraph agents are naturally async. Once agents need DB access, sync SQLAlchemy causes event-loop blocking and `asyncio.run()` workarounds. Migrate the DB layer before this becomes painful.
-
-## What to change
-
-| Component | From | To |
-|---|---|---|
-| Driver | `psycopg2-binary` | `asyncpg` |
-| Session | `Session` | `AsyncSession` |
-| `get_db()` | sync generator | async generator |
-| Queries | `db.query(Model).filter(...)` | `await db.execute(select(Model).where(...))` |
-| Endpoints | `def` | `async def` |
-| Service functions | `def` | `async def` |
-
-## Files to touch
-- `backend/app/db/database.py` — engine → `create_async_engine`, `AsyncSession`
-- `backend/app/db/init_db.py` — `async_engine.begin()` + `run_async_in_transaction`
-- All files in `backend/app/services/`
-- `backend/app/main.py` — all endpoints
-
-## Why not now
-Current phases (1–8) use sync SQLAlchemy cleanly. Migration before Phase 9 avoids rewriting everything twice while keeping the DB layer consistent throughout.
 
 ------------------------------------------------------------------------
 
@@ -1131,6 +1103,36 @@ min_emergency_fund_months: 6
 ### Deliverable
 
 Policy validation service.
+------------------------------------------------------------------------
+
+# Pre-Phase 9 Migration: Async DB Stack
+
+**Must complete before starting Phase 9 (Compliance Agent).**
+
+LangGraph agents are naturally async. Once agents need DB access, 
+sync SQLAlchemy causes event-loop blocking and `asyncio.run()` workarounds. 
+Migrate the DB layer before this becomes painful.
+
+## What to change
+
+| Component         | From                          | To                                           |
+|-------------------|-------------------------------|----------------------------------------------|
+| Driver            | `psycopg2-binary`             | `asyncpg`                                    |
+| Session           | `Session`                     | `AsyncSession`                               |
+| `get_db()`        | sync generator                | async generator                              |
+| Queries           | `db.query(Model).filter(...)` | `await db.execute(select(Model).where(...))` |
+| Endpoints         | `def`                         | `async def`                                  |
+| Service functions | `def`                         | `async def`                                  |
+
+## Files to touch
+- `backend/app/db/database.py` — engine → `create_async_engine`, `AsyncSession`
+- `backend/app/db/init_db.py` — `async_engine.begin()` + `run_async_in_transaction`
+- All files in `backend/app/services/`
+- `backend/app/main.py` — all endpoints
+
+## Why not now
+Current phases (1–8) use sync SQLAlchemy cleanly. 
+Migration before Phase 9 avoids rewriting everything twice while keeping the DB layer consistent throughout.
 
 ------------------------------------------------------------------------
 

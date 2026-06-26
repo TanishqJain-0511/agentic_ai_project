@@ -1,8 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.services.risk_assessment_service import get_risk_assessment_by_user_id
 from backend.app.schemas.allocation import AllocationRequest
 
-# Base equity/debt/gold split per risk tier
 _TIER_ALLOCATIONS = {
     "Safest":   {"equity": 20.0, "debt": 75.0, "gold": 5.0},
     "Safer":    {"equity": 40.0, "debt": 55.0, "gold": 5.0},
@@ -11,12 +11,12 @@ _TIER_ALLOCATIONS = {
 }
 
 
-def compute_allocation(db: Session, data: AllocationRequest) -> dict:
-    assessment = get_risk_assessment_by_user_id(db, data.user_id)
+async def compute_allocation(db: AsyncSession, data: AllocationRequest) -> dict:
+    assessment = await get_risk_assessment_by_user_id(db, data.user_id)
     risk_tier = (
         assessment.risk_tier
         if assessment and assessment.risk_tier
-        else "Safer"          # default if risk score not yet computed
+        else "Safer"
     )
 
     base = _TIER_ALLOCATIONS[risk_tier].copy()
@@ -24,13 +24,12 @@ def compute_allocation(db: Session, data: AllocationRequest) -> dict:
     debt = base["debt"]
     gold = base["gold"]
 
-    # Horizon cap: short goals cannot tolerate high equity volatility
     horizon_capped = False
     cap = _equity_cap(data.goal_horizon_years)
     if cap is not None and equity > cap:
         excess = equity - cap
         equity = cap
-        debt = debt + excess      # excess equity moves to debt
+        debt = debt + excess
         horizon_capped = True
 
     return {
@@ -45,7 +44,6 @@ def compute_allocation(db: Session, data: AllocationRequest) -> dict:
 
 
 def _equity_cap(years: int):
-    # Returns the equity ceiling for the given horizon, or None if no cap needed
     if years < 3:
         return 30.0
     elif years < 5:

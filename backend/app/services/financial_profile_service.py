@@ -1,44 +1,25 @@
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.financial_profile import FinancialProfile
 from backend.app.schemas.financial_profile import FinancialProfileCreate
 
-def create_financial_profile(db:Session, financial_profile_data:FinancialProfileCreate):
 
-    """
-    Creates a new financial profile for a specific user
-    :param db:
-    :param user:
-    :param financial_profile:
-    :return:
-    """
-    new_financial_profile = FinancialProfile(
-        **financial_profile_data.model_dump()
+async def create_financial_profile(db: AsyncSession, financial_profile_data: FinancialProfileCreate):
+    new_profile = FinancialProfile(**financial_profile_data.model_dump())
+    db.add(new_profile)
+    await db.commit()
+    await db.refresh(new_profile)
+    return new_profile
+
+
+async def get_all_financial_profile(db: AsyncSession):
+    result = await db.execute(select(FinancialProfile))
+    return result.scalars().all()
+
+
+async def get_financial_profile_by_user_id(db: AsyncSession, user_id: int):
+    result = await db.execute(
+        select(FinancialProfile).where(FinancialProfile.user_id == user_id)
     )
-
-    db.add(new_financial_profile)
-    db.commit()
-    db.refresh(new_financial_profile)
-
-    return new_financial_profile
-
-def get_all_financial_profile(db:Session):
-    """
-    Retrieves all financial profiles
-    :param db:
-    :return:
-    """
-    return db.query(FinancialProfile).all()
-
-def get_financial_profile_by_user_id(db:Session, user_id: int):
-    """
-    Retrieves a financial profile for a specific user
-    :param db:
-    :param user_id:
-    :return:
-    """
-    return (
-        db.query(FinancialProfile)
-        .filter(FinancialProfile.user_id==user_id)
-        .first()
-
-    )
+    return result.scalar_one_or_none()

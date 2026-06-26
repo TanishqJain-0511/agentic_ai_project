@@ -1,16 +1,15 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.services.risk_assessment_service import get_risk_assessment_by_user_id
 from backend.app.schemas.risk_score import RiskScoreRequest
 
 
-def compute_risk_score(db: Session, data: RiskScoreRequest) -> dict:
+async def compute_risk_score(db: AsyncSession, data: RiskScoreRequest) -> dict:
     age_score = _age_score(data.age)
-
     horizon_score = _horizon_score(data.goal_horizon_years)
-
     income_score = _income_score(data.income_stability)
 
-    assessment = get_risk_assessment_by_user_id(db, data.user_id)
+    assessment = await get_risk_assessment_by_user_id(db, data.user_id)
 
     questionnaire_score = _questionnaire_score(
         assessment.questionnaire_answers if assessment else {}
@@ -19,12 +18,11 @@ def compute_risk_score(db: Session, data: RiskScoreRequest) -> dict:
     total_score = age_score + horizon_score + income_score + questionnaire_score
     tier = _risk_tier(total_score)
 
-    # Persist the computed score back into the existing risk_assessment row
     if assessment:
         assessment.risk_score = total_score
         assessment.risk_tier = tier
-        db.commit()
-        db.refresh(assessment)
+        await db.commit()
+        await db.refresh(assessment)
 
     return {
         "user_id": data.user_id,
@@ -40,7 +38,6 @@ def compute_risk_score(db: Session, data: RiskScoreRequest) -> dict:
 
 
 def _age_score(age: int) -> int:
-    # Max 30 pts — younger = can afford more volatility
     if age < 30:
         return 30
     elif age < 40:
@@ -53,7 +50,6 @@ def _age_score(age: int) -> int:
 
 
 def _horizon_score(years: int) -> int:
-    # Max 30 pts — longer horizon = more time to recover from losses
     if years > 10:
         return 30
     elif years >= 7:
@@ -66,12 +62,10 @@ def _horizon_score(years: int) -> int:
 
 
 def _income_score(stability: str) -> int:
-    # Max 20 pts — stable income = can ride out market swings
     return {"stable": 20, "semi_stable": 12, "variable": 6}.get(stability, 0)
 
 
 def _questionnaire_score(answers: dict) -> int:
-    # Max 20 pts — 5 questions × 4 pts each
     SCORING = {
         "market_drop_reaction":   {"buy_more": 4, "hold": 2, "sell": 0},
         "investment_experience":  {"expert": 4, "intermediate": 2, "beginner": 0},
@@ -79,20 +73,10 @@ def _questionnaire_score(answers: dict) -> int:
         "loss_tolerance_percent": {">20": 4, "10-20": 2, "<10": 0},
         "investment_knowledge":   {"high": 4, "medium": 2, "low": 0},
     }
-
-    total_score = 0
-
+    total = 0
     for question, score_map in SCORING.items():
-        # Get the user's answer for this question
-        answer = answers.get(question)
-
-        # Look up the score for that answer
-        score = score_map.get(answer, 0)
-
-        # Add it to the running total
-        total_score += score
-
-    return total_score
+        total += score_map.get(answers.get(question), 0)
+    return total
 
 
 def _risk_tier(score: int) -> str:

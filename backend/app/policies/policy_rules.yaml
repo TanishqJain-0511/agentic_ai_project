@@ -1,0 +1,90 @@
+# Compliance rules for the Policy Engine
+# Philosophy: "LLM explains, rules decide" — these rules are the authoritative
+# source of portfolio compliance.  All checks are deterministic.
+#
+# Rule fields:
+#   id               — unique rule identifier
+#   description      — human-readable explanation of the rule
+#   asset            — which allocation field to evaluate (equity_pct | debt_pct | gold_pct)
+#   rule_type        — max (upper bound) or min (lower bound)
+#   limit            — the threshold value (percentage)
+#   applies_to_tiers — (optional) list of risk tiers this rule applies to
+#   applies_when_horizon_lt — (optional) rule applies when goal_horizon_years < this value
+
+rules:
+
+  # ── Tier-based equity maximums ───────────────────────────────────────────────
+  # Prevents overly aggressive equity for conservative investor profiles.
+
+  - id: equity_cap_safest
+    description: "Safest portfolio must not exceed 25% equity"
+    asset: equity_pct
+    rule_type: max
+    limit: 25.0
+    applies_to_tiers: [Safest]
+
+  - id: equity_cap_safer
+    description: "Safer portfolio must not exceed 55% equity"
+    asset: equity_pct
+    rule_type: max
+    limit: 55.0
+    applies_to_tiers: [Safer]
+
+  - id: equity_cap_riskier
+    description: "Riskier portfolio must not exceed 65% equity"
+    asset: equity_pct
+    rule_type: max
+    limit: 65.0
+    applies_to_tiers: [Riskier]
+
+  - id: equity_cap_riskiest
+    description: "Riskiest portfolio must not exceed 85% equity"
+    asset: equity_pct
+    rule_type: max
+    limit: 85.0
+    applies_to_tiers: [Riskiest]
+
+  # ── Minimum debt (liquidity floor) ───────────────────────────────────────────
+  # Ensures every portfolio retains some fixed-income exposure for liquidity
+  # and capital preservation.  Inspired by SEBI mutual fund categorisation norms.
+
+  - id: debt_floor_all
+    description: "All portfolios must hold at least 5% in debt for liquidity"
+    asset: debt_pct
+    rule_type: min
+    limit: 5.0
+    applies_to_tiers: [Safest, Safer, Riskier, Riskiest]
+
+  # ── Minimum gold (diversification floor) ─────────────────────────────────────
+  # Gold provides inflation hedge and low-correlation diversification.
+
+  - id: gold_floor_all
+    description: "All portfolios must hold at least 3% in gold for diversification"
+    asset: gold_pct
+    rule_type: min
+    limit: 3.0
+    applies_to_tiers: [Safest, Safer, Riskier, Riskiest]
+
+  # ── Short-horizon equity caps ─────────────────────────────────────────────────
+  # Short investment horizons cannot absorb equity volatility.  These rules
+  # mirror the conservative guidance implicit in SEBI's categorisation of
+  # short-duration and liquid funds.
+
+  - id: equity_cap_horizon_short
+    description: "Goal horizon < 3 years: equity must not exceed 30%"
+    asset: equity_pct
+    rule_type: max
+    limit: 30.0
+    applies_when_horizon_lt: 3
+
+  - id: equity_cap_horizon_medium
+    description: "Goal horizon < 5 years: equity must not exceed 50%"
+    asset: equity_pct
+    rule_type: max
+    limit: 50.0
+    applies_when_horizon_lt: 5
+
+  # ── Total allocation sanity check (internal consistency) ─────────────────────
+  # Not a regulatory rule — guards against computation bugs.
+  # Implemented in code rather than YAML because it involves summing fields.
+  # (see policy_engine.py: _check_total_equals_100)
