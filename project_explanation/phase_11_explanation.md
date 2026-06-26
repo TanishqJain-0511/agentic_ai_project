@@ -11,9 +11,9 @@ documents like SEBI circulars, AMC fact sheets, or financial education content.
 RAG stands for **Retrieval-Augmented Generation**. The pattern:
 1. **Ingest**: split a document into chunks, embed each chunk as a vector, store in a vector database
 2. **Retrieve**: embed a query, find the chunks most semantically similar to it via cosine similarity
-3. **Generate**: (future) pass the retrieved chunks as context to the LLM to answer the query
+3. **Generate**: pass the retrieved chunks as context to the LLM to answer the query, grounded in real documents
 
-Phase 11 implements steps 1 and 2. Step 3 (generation) is Phase 12's domain.
+Phase 11 implements all three steps.
 
 ---
 
@@ -36,9 +36,12 @@ POST /rag/ingest:
 
 POST /rag/retrieve:
   query → _embed() → cosine similarity SQL → top-k DocumentChunks
+
+POST /rag/generate:
+  query → retrieve_chunks() → build context prompt → Ollama llama3.2:3b → grounded answer
 ```
 
-Three key technologies:
+Four key technologies:
 - **pgvector** — PostgreSQL extension for storing and querying vectors (embeddings)
 - **BAAI/bge-small-en-v1.5** — the embedding model (384-dimensional, runs locally)
 - **sentence-transformers** — Python library that runs the embedding model
@@ -311,3 +314,77 @@ retrieve_chunks(db, data)
   ]
 }
 ```
+
+---
+
+## Concept 8: Generation — Grounding the LLM in Retrieved Context
+
+This is the "G" in RAG. After retrieval, the top-k chunks are injected into an LLM prompt as context. The LLM must answer **only from that context** — it cannot rely on its parametric (trained) knowledge.
+
+### Why strict grounding?
+Without it, an LLM asked "What is the SEBI SIP limit?" will confidently produce an answer from training data — which may be outdated, jurisdiction-wrong, or hallucinated. With context grounding, the LLM reads the actual SEBI circular text and either extracts the right number or says it's not in the documents.
+
+### The System Prompt
+```python
+_RAG_SYSTEM_PROMPT = """You are a precise financial document assistant.
+Answer the user's question using ONLY the context passages provided below.
+If the answer is not present in the context, say "I could not find this information in the provided documents."
+Do not use any outside knowledge. Be concise and factual."""
+```
+
+The key constraint is "using ONLY the context passages" — this is what prevents hallucination.
+
+### How context is injected
+```python
+context_block = "\n\n---\n\n".join(
+    f"[Source: {r.source}, chunk {r.chunk_index}]\n{r.content}"
+    for r in retrieved.results
+)
+user_prompt = f"Context:\n{context_block}\n\nQuestion: {data.query}"
+```
+
+Each chunk is labelled with its source and chunk index. This helps the LLM (and the user reading `sources_used`) trace exactly which document passage the answer came from.
+
+### Graceful degradation
+If Ollama is not running, the endpoint returns:
+```json
+{"status": "ollama_unavailable", "answer": "Ollama is not running...", "sources_used": [...]}
+```
+The retrieved chunks are still returned in `sources_used`, so the caller knows retrieval worked even if generation failed.
+
+---
+
+## End-to-end: POST /rag/generate
+
+```
+POST /rag/generate
+Body: {"query": "What is the SEBI SIP limit?", "top_k": 3, "source_filter": "sebi_circular_2024"}
+         │
+         ▼
+generate_rag_answer(db, data)
+         │
+         ├── retrieve_chunks() → 3 most similar chunks (reuses existing retrieval logic)
+         │       chunk 0: "[Source: sebi_circular_2024, chunk 3]\nThe monthly SIP limit..."
+         │       chunk 1: "[Source: sebi_circular_2024, chunk 4]\nInvestors may..."
+         │       chunk 2: "[Source: sebi_circular_2024, chunk 6]\nSEBI circular dated..."
+         │
+         ├── Build prompt:
+         │       System: "Answer using ONLY the context..."
+         │       User:   "Context:\n[chunk0]\n---\n[chunk1]\n---\n[chunk2]\n\nQuestion: What is the SEBI SIP limit?"
+         │
+         ├── await llm.ainvoke([SystemMessage, HumanMessage])
+         │       → Ollama llama3.2:3b reads the actual SEBI text
+         │
+         ▼
+{
+  "query": "What is the SEBI SIP limit?",
+  "answer": "According to the SEBI circular, the monthly SIP limit for equity mutual funds is ₹...",
+  "sources_used": ["sebi_circular_2024#chunk3", "sebi_circular_2024#chunk4", "sebi_circular_2024#chunk6"],
+  "status": "success"
+}
+```
+
+### Key difference from Phase 12's /explain
+`/explain` narrates pre-computed structured verdicts (risk score, allocation, simulation numbers).
+`/rag/generate` answers open-ended questions grounded in ingested text documents.
+They are complementary — one is for structured financial verdicts, the other for document Q&A.

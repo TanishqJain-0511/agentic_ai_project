@@ -10,9 +10,12 @@ This is where "LLM explains, rules decide" culminates. Every previous phase comp
 - Phase 5/9: asset allocation percentages
 - Phase 10: success probability
 
-Phase 12 takes all these computed verdicts and asks the LLM to **narrate them** in plain English for a first-time Indian mutual fund investor.
+Phase 12 takes all these computed verdicts and asks the LLM to **narrate them** in plain English for 
+a first-time Indian mutual fund investor.
 
-The LLM doesn't compute, decide, or verify anything. It only translates already-correct structured data into natural language. If Ollama is unavailable, the numbers are still correct — only the plain-English explanation is missing. This is the right failure mode: degraded UX, not degraded financial accuracy.
+The LLM doesn't compute, decide, or verify anything. It only translates already-correct structured data into 
+natural language. If Ollama is unavailable, the numbers are still correct — only the plain-English explanation 
+is missing. This is the right failure mode: degraded UX, not degraded financial accuracy.
 
 ---
 
@@ -57,7 +60,8 @@ This is a module-level constant — loaded once, reused on every request.
 **Every rule is a constraint on LLM behaviour**:
 
 - `"4–6 sentences"` — prevents the LLM from writing a 2-page essay or a 1-sentence non-answer
-- `"Never change or question the numbers"` — the most important rule. Without it, the LLM might say "this allocation seems aggressive, let me suggest..." — which would violate the "rules decide" philosophy
+- `"Never change or question the numbers"` — the most important rule. Without it, the LLM might say "this 
+allocation seems aggressive, let me suggest..." — which would violate the "rules decide" philosophy
 - `"Simple language"` — prevents jargon (alpha, beta, Sharpe ratio, duration risk)
 - `"Mention rupee amounts in lakhs or crores"` — domain-specific formatting for Indian investors
 - `"No generic disclaimers"` — prevents boilerplate ("This is not financial advice...") which reduces the explanation's usefulness
@@ -106,15 +110,24 @@ def _build_user_prompt(data: ExplanationRequest) -> str:
     return "\n".join(lines)
 ```
 
-This function converts structured data into a bullet-point style human turn for the LLM. The pattern is deliberate: give the LLM **all facts** it needs as structured text, then ask it to explain.
+This function converts structured data into a bullet-point style human turn for the LLM. The pattern is deliberate: 
+give the LLM **all facts** it needs as structured text, then ask it to explain.
 
-**Why conditional fields?** Not every call to `/explain` will have all fields. A user who skipped the simulation step won't have `simulation_success_probability`. The optional fields are only added if provided — the prompt adapts to whatever data is available.
+**Why conditional fields?** Not every call to `/explain` will have all fields. A user who skipped the simulation 
+step won't have `simulation_success_probability`. The optional fields are only added if provided — the prompt adapts 
+to whatever data is available.
 
-**`{data.goal_target_amount:,.0f}`** — Python format spec: `,` inserts comma separators, `.0f` rounds to no decimal places. `5000000` becomes `"5,000,000"`. Combined with the `₹` prefix and LLM's instruction to use lakhs/crores, the LLM will say "₹50 lakhs" naturally.
+**`{data.goal_target_amount:,.0f}`** — Python format spec: `,` inserts comma separators, `.0f` rounds to 
+no decimal places. `5000000` becomes `"5,000,000"`. Combined with the `₹` prefix and LLM's instruction to use 
+lakhs/crores, the LLM will say "₹50 lakhs" naturally.
 
-**The horizon_capped note** — this is pre-written context that tells the LLM *why* equity was reduced. Without it, the LLM would see "Riskiest tier, 30% equity" and be confused (Riskiest should be 85%). The note prevents incorrect narration.
+**The horizon_capped note** — this is pre-written context that tells the LLM *why* equity was reduced. 
+Without it, the LLM would see "Riskiest tier, 30% equity" and be confused (Riskiest should be 85%). 
+The note prevents incorrect narration.
 
-**Compliance violations** — if the compliance agent resolved violations, they're listed. The LLM might say: "Your allocation was adjusted to comply with regulatory guidelines — specifically, equity was capped to protect your investment."
+**Compliance violations** — if the compliance agent resolved violations, they're listed. The LLM might say: 
+"Your allocation was adjusted to comply with regulatory guidelines — specifically, equity was capped to 
+protect your investment."
 
 ---
 
@@ -131,19 +144,17 @@ async def generate_explanation(data: ExplanationRequest) -> ExplanationResponse:
     ])
 ```
 
-`ChatOllama` is created per request (unlike Phase 7 where the agent is created per request but the LLM object is created once). This is fine for a single-call pattern — no reuse across calls in the same request.
+`ChatOllama` is created per request (unlike Phase 7 where the agent is created per request but the LLM object 
+is created once). This is fine for a single-call pattern — no reuse across calls in the same request.
 
-`await llm.ainvoke([...])` — async invocation. Sends the message list to Ollama, waits for the complete response, returns an `AIMessage`.
+`await llm.ainvoke([...])` — async invocation. Sends the message list to Ollama, waits for the complete 
+response, returns an `AIMessage`.
 
 Two messages only — no `ToolMessage`, no loop:
 - `SystemMessage` — the LLM's persona and constraints
 - `HumanMessage` — the structured data + request to explain
 
 `response.content.strip()` extracts the plain text from the `AIMessage` and removes leading/trailing whitespace.
-
-### Why llama3.2:3b specifically?
-
-The explanation task is simple: read structured data, write 4–6 sentences. A 3 billion parameter model is sufficient. The 8B model (used in Phase 7) is overkill for this task and 2–3x slower. For a local, zero-cost deployment, choosing the smallest capable model matters.
 
 ---
 
@@ -168,13 +179,15 @@ The explanation task is simple: read structured data, write 4–6 sentences. A 3
 
 Same pattern as Phase 7. Three response states:
 
-| status | Meaning |
-|--------|---------|
-| `"success"` | Ollama is running, explanation generated |
+| status                 | Meaning                                                |
+|------------------------|--------------------------------------------------------|
+| `"success"`            | Ollama is running, explanation generated               |
 | `"ollama_unavailable"` | Ollama process not running — tell user how to start it |
-| `"error"` | Some other exception — surface the error message |
+| `"error"`              | Some other exception — surface the error message       |
 
-The API never returns HTTP 500. The frontend (Phase 13) can always display something — either the explanation or a clear message about why it's unavailable. All computed numbers (risk score, allocation, simulation) remain valid regardless of Ollama's status.
+The API never returns HTTP 500. The frontend (Phase 13) can always display something — 
+either the explanation or a clear message about why it's unavailable. All computed numbers 
+(risk score, allocation, simulation) remain valid regardless of Ollama's status.
 
 ---
 
