@@ -31,3 +31,16 @@ class RetrievedChunk(BaseModel):
 class RAGRetrieveResponse(BaseModel):
     query: str
     results: List[RetrievedChunk]
+
+
+class RAGGenerateRequest(BaseModel):
+    query: str = Field(..., min_length=3, description="Natural language question to answer")
+    top_k: int = Field(default=3, ge=1, le=10)
+    source_filter: str | None = Field(default=None, description="Limit retrieval to a specific source")
+
+
+class RAGGenerateResponse(BaseModel):
+    query: str
+    answer: str
+    sources_used: List[str]   # list of (source, chunk_index) strings for transparency
+    status: str               # "success" | "ollama_unavailable" | "no_chunks_found" | "error"
