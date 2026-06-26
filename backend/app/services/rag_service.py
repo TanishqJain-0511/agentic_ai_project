@@ -10,18 +10,10 @@ Vector store:    PostgreSQL + pgvector (cosine distance)
 """
 
 from typing import List
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.app.models.document_chunk import DocumentChunk, EMBEDDING_DIM
-from backend.app.schemas.rag import (
-    RAGIngestRequest,
-    RAGIngestResponse,
-    RAGRetrieveRequest,
-    RAGRetrieveResponse,
-    RetrievedChunk,
-)
+from backend.app.schemas.rag import RAGIngestRequest,RAGIngestResponse,RAGRetrieveRequest,RAGRetrieveResponse,RetrievedChunk
 
 _EMBEDDING_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _model = None  # lazy-loaded on first use

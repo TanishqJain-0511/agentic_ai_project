@@ -132,13 +132,20 @@ await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
 ```
 
 #### `backend/app/models/document_chunk.py` (update)
-Add GIN index on `content`:
+Add GIN index on `content`, plus new fields:
 ```python
 __table_args__ = (
     Index("ix_document_chunk_content_trgm", "content", postgresql_using="gin",
           postgresql_ops={"content": "gin_trgm_ops"}),
 )
+
+# New columns to add:
+source_id: Mapped[str] = mapped_column(String, nullable=True, index=True)  # stable ID for a document (UUID or slug)
+source_url: Mapped[str] = mapped_column(String, nullable=True)              # original URL of the ingested document
+modified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
 ```
+
+**Re-ingestion behaviour**: when a document is updated and re-ingested, delete existing chunks by `source_id` (not `source_name`). `source_name` is a human-readable label and may change; `source_id` is the stable key that uniquely identifies the document across updates.
 
 #### `backend/app/services/rag_service.py` (update `retrieve_chunks`)
 Replace single vector query with:
