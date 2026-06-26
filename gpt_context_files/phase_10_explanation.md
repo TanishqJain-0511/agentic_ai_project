@@ -4,11 +4,18 @@
 
 ## What is this phase doing conceptually?
 
-Phases 3–9 compute what the investor should do. Phase 10 answers: **if they follow this plan, will they actually reach their goal?**
+Phases 3–9 compute what the investor should do. Phase 10 answers: **if they follow this plan, will they 
+actually reach their goal?**
 
-A simple CAGR projection says: "with 12% annual equity return, ₹1L invested for 10 years becomes ₹3.1L". But this assumes returns are constant — they're not. Some years equity returns 35%, some years it returns -20%. The sequence of returns matters enormously. A string of bad years early in the investment period can devastate an otherwise sound plan.
+A simple CAGR projection says: "with 12% annual equity return, ₹1L invested for 10 years becomes ₹3.1L". 
+But this assumes returns are constant — they're not. Some years equity returns 35%, some years it returns -20%. 
+The sequence of returns matters enormously. A string of bad years early in the investment period can 
+devastate an otherwise sound plan.
 
-Monte Carlo simulation addresses this by running **thousands of parallel scenarios**, each with randomly sampled returns drawn from realistic distributions. The result is not a single projected number but a **distribution of outcomes** — and the percentage of scenarios where the portfolio reaches the target is the **success probability**.
+Monte Carlo simulation addresses this by running **thousands of parallel scenarios**,
+each with randomly sampled returns drawn from realistic distributions. 
+The result is not a single projected number but a **distribution of outcomes** — and the 
+percentage of scenarios where the portfolio reaches the target is the **success probability**.
 
 ---
 
@@ -27,7 +34,9 @@ Monte Carlo:
   Fraction reaching ₹3L target = 68% → success probability = 68%
 ```
 
-Monte Carlo gives you the distribution, not a point estimate. The p10 value (10th percentile) is the pessimistic case — 90% of scenarios do better. The p90 is the optimistic case.
+Monte Carlo gives you the distribution, not a point estimate. 
+The p10 value (10th percentile) is the pessimistic case — 90% of scenarios do better. 
+The p90 is the optimistic case.
 
 ---
 
@@ -41,11 +50,14 @@ _ASSET_RETURNS = {
 }
 ```
 
-**Equity (Nifty 50 / Sensex long-run)**: 12% mean annual return, 20% standard deviation. The 20% std captures the wild swings of Indian equity markets — a crash of -40% is within 2 standard deviations.
+**Equity (Nifty 50 / Sensex long-run)**: 12% mean annual return, 20% standard deviation. 
+The 20% std captures the wild swings of Indian equity markets — a crash of -40% is within 2 standard deviations.
 
-**Debt (Gilt / short-duration)**: 7% mean, 3% std. Debt is stable — government bonds barely fluctuate. The low std reflects this predictability.
+**Debt (Gilt / short-duration)**: 7% mean, 3% std. Debt is stable — government bonds barely fluctuate. 
+The low std reflects this predictability.
 
-**Gold (domestic price CAGR)**: 8% mean, 12% std. Gold is more volatile than debt but less than equity. It's often negatively correlated with equity — it rises during market stress.
+**Gold (domestic price CAGR)**: 8% mean, 12% std. Gold is more volatile than debt but less than equity. 
+It's often negatively correlated with equity — it rises during market stress.
 
 These are **annual** figures. The simulation runs monthly, so they must be converted.
 
@@ -58,9 +70,11 @@ eq_mu  = _ASSET_RETURNS["equity"]["mean"] / 12
 eq_sig = _ASSET_RETURNS["equity"]["std"]  / np.sqrt(12)
 ```
 
-**Mean conversion**: Annual mean / 12 = monthly mean. ₹100 at 12% annual = ₹112 after 12 months. Monthly: ₹100 × (1 + 0.01)^12 ≈ ₹112.68. For small rates, `mean/12` is a good approximation (exact formula is `(1 + annual)^(1/12) - 1`, but the approximation is sufficient here).
+**Mean conversion**: Annual mean / 12 = monthly mean. ₹100 at 12% annual = ₹112 after 12 months. 
+Monthly: ₹100 × (1 + 0.01)^12 ≈ ₹112.68. For small rates, `mean/12` is a good approximation (exact formula is `(1 + annual)^(1/12) - 1`, but the approximation is sufficient here).
 
-**Standard deviation conversion**: Annual std / √12 = monthly std. This comes from the statistical property that if monthly returns are independent and identically distributed:
+**Standard deviation conversion**: Annual std / √12 = monthly std. This comes from the statistical 
+property that if monthly returns are independent and identically distributed:
 
 ```
 Var(annual) = 12 × Var(monthly)   [sum of 12 independent variances]
@@ -68,13 +82,15 @@ Std(annual) = √12 × Std(monthly)
 ∴ Std(monthly) = Std(annual) / √12
 ```
 
-This is only exact for additive (arithmetic) returns, but for the magnitudes involved it's a reasonable approximation.
+This is only exact for additive (arithmetic) returns, but for the magnitudes involved it's 
+a reasonable approximation.
 
 ---
 
 ## NumPy Vectorisation — The Core Computation
 
-The key performance insight: instead of running 1000 Python loops one by one, we use NumPy to compute all 1000 scenarios simultaneously via matrix operations.
+The key performance insight: instead of running 1000 Python loops one by one, 
+we use NumPy to compute all 1000 scenarios simultaneously via matrix operations.
 
 ```python
 n = data.n_simulations      # e.g. 1000
@@ -86,7 +102,8 @@ db_returns = np.random.normal(db_mu, db_sig, (n, months))
 gd_returns = np.random.normal(gd_mu, gd_sig, (n, months))
 ```
 
-`np.random.normal(mean, std, shape)` generates a matrix of shape `(1000, 120)` = 120,000 random return values from a normal distribution, all in one call.
+`np.random.normal(mean, std, shape)` generates a matrix of shape `(1000, 120)` = 120,000 random return values 
+from a normal distribution, all in one call.
 
 Each row is one scenario's 120 monthly returns. Each column is one month's returns across all 1000 scenarios.
 
@@ -101,7 +118,8 @@ portfolio_returns = (
 Element-wise weighted sum. If equity=60%, debt=30%, gold=10%:
 - Monthly portfolio return = 0.6 × equity_return + 0.3 × debt_return + 0.1 × gold_return
 
-This produces a `(1000, 120)` matrix where each element is the weighted portfolio monthly return for that scenario-month combination.
+This produces a `(1000, 120)` matrix where each element is the weighted portfolio monthly return for 
+that scenario-month combination.
 
 ---
 
@@ -117,13 +135,17 @@ for m in range(months):
 `corpus` starts as a vector of 1000 identical values (`initial_investment`). Shape: `(1000,)`.
 
 Each month `m`:
-- `portfolio_returns[:, m]` — column `m` of the returns matrix. Shape: `(1000,)`. One return per scenario for this month.
+- `portfolio_returns[:, m]` — column `m` of the returns matrix. Shape: `(1000,)`. 
+One return per scenario for this month.
 - `corpus * (1 + portfolio_returns[:, m])` — compound the corpus by this month's return. Shape: `(1000,)`.
 - `+ data.monthly_sip` — add the SIP contribution. Same for all 1000 scenarios (SIP is deterministic).
 
 After 120 iterations, `corpus` contains 1000 final values — one per scenario.
 
-**Why a loop instead of a single matrix operation?** The month-by-month compounding is inherently sequential — month 2 depends on month 1's corpus. You can't vectorise across the time dimension for this reason. You can vectorise across scenarios (the 1000 dimension) — and that's exactly what we do with `corpus * (1 + portfolio_returns[:, m])`.
+**Why a loop instead of a single matrix operation?** The month-by-month compounding is inherently sequential — 
+month 2 depends on month 1's corpus. You can't vectorise across the time dimension for this reason. 
+You can vectorise across scenarios (the 1000 dimension) — and that's exactly what we do with 
+`corpus * (1 + portfolio_returns[:, m])`.
 
 ---
 
@@ -134,7 +156,8 @@ success_count = np.sum(corpus >= data.goal_target_amount)
 success_prob  = float(success_count / n * 100)
 ```
 
-Count the scenarios where the final corpus reached the target. Divide by total scenarios to get a fraction. Multiply by 100 for a percentage.
+Count the scenarios where the final corpus reached the target. 
+Divide by total scenarios to get a fraction. Multiply by 100 for a percentage.
 
 ```python
 p10_final_value = round(float(np.percentile(corpus, 10)), 2)
@@ -144,14 +167,16 @@ p75_final_value = round(float(np.percentile(corpus, 75)), 2)
 p90_final_value = round(float(np.percentile(corpus, 90)), 2)
 ```
 
-`np.percentile(corpus, 10)` — the value below which 10% of scenarios fall. If p10 = ₹2.5L, it means even in the worst 10% of scenarios, you'd still end up with ₹2.5L.
+`np.percentile(corpus, 10)` — the value below which 10% of scenarios fall. If p10 = ₹2.5L, 
+it means even in the worst 10% of scenarios, you'd still end up with ₹2.5L.
 
 **Interpreting the percentiles**:
 - `p10` — pessimistic case (bad luck, poor returns)
 - `p50` — median outcome (expected central case)
 - `p90` — optimistic case (good returns sequence)
 
-The Streamlit frontend (Phase 13) visualises these as a bar chart with the target amount marked — so you can see at a glance whether the p50 outcome clears the goal.
+The Streamlit frontend (Phase 13) visualises these as a bar chart with the target amount marked 
+— so you can see at a glance whether the p50 outcome clears the goal.
 
 ---
 
@@ -162,9 +187,11 @@ The Streamlit frontend (Phase 13) visualises these as a bar chart with the targe
 eq_returns = np.random.normal(eq_mu, eq_sig, (n, months))
 ```
 
-Production Monte Carlo simulations should not be seeded. Seeding produces the same results every run — which would give false confidence (users would always see the same probability). Each call to `POST /simulate` should draw fresh random samples to reflect genuine uncertainty.
+Production Monte Carlo simulations should not be seeded. Seeding produces the same results every run 
+— which would give false confidence (users would always see the same probability). 
+Each call to `POST /simulate` should draw fresh random samples to reflect genuine uncertainty.
 
-For unit tests, you would seed: `np.random.seed(42)` before calling `run_simulation` to make tests deterministic.
+For unit tests, you would seed: `np.random.seed(42)` before calling `run_simulation`to make tests deterministic.
 
 ---
 
@@ -176,9 +203,12 @@ async def simulate_endpoint(data: SimulationRequest):
     return run_simulation(data)   # No db parameter!
 ```
 
-The simulation is entirely stateless — inputs come from the request body, outputs are computed in memory. No database reads or writes. This makes it the fastest endpoint in the application — just NumPy math.
+The simulation is entirely stateless — inputs come from the request body, outputs are computed in memory. 
+No database reads or writes. This makes it the fastest endpoint in the application — just NumPy math.
 
-`run_simulation` is also sync (`def`, not `async def`). FastAPI handles sync route functions by running them in a threadpool, preventing the event loop from blocking. Pure CPU-bound NumPy operations are fast enough (~50ms for 1000 scenarios) that this isn't a concern.
+`run_simulation` is also sync (`def`, not `async def`). FastAPI handles sync route functions by 
+running them in a threadpool, preventing the event loop from blocking. Pure CPU-bound NumPy operations 
+are fast enough (~50ms for 1000 scenarios) that this isn't a concern.
 
 ---
 
@@ -238,4 +268,7 @@ run_simulation(data)
 }
 ```
 
-A 68% success probability means: in 680 out of 1000 simulated futures, this SIP plan reaches ₹50L in 10 years. The p50 of ₹48L is below the ₹50L target — meaning in the median scenario, the investor falls slightly short. To improve: increase SIP, increase horizon, or accept higher equity allocation.
+A 68% success probability means: in 680 out of 1000 simulated futures, 
+this SIP plan reaches ₹50L in 10 years. The p50 of ₹48L is below the ₹50L target — 
+meaning in the median scenario, the investor falls slightly short. To improve: increase SIP, 
+increase horizon, or accept higher equity allocation.
