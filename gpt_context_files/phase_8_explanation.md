@@ -78,15 +78,15 @@ rules:
 
 Each rule is a dict with these fields:
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `id` | str | Unique identifier — appears in violation reports |
-| `description` | str | Human-readable explanation |
-| `asset` | str | Which allocation field: `equity_pct`, `debt_pct`, `gold_pct` |
-| `rule_type` | str | `"max"` (cap) or `"min"` (floor) |
-| `limit` | float | The threshold value |
-| `applies_to_tiers` | list[str] | Optional — only check this rule for these tiers |
-| `applies_when_horizon_lt` | int | Optional — only check if horizon < this value |
+| Field                     | Type      | Purpose                                                      |
+|---------------------------|-----------|--------------------------------------------------------------|
+| `id`                      | str       | Unique identifier — appears in violation reports             |
+| `description`             | str       | Human-readable explanation                                   |
+| `asset`                   | str       | Which allocation field: `equity_pct`, `debt_pct`, `gold_pct` |
+| `rule_type`               | str       | `"max"` (cap) or `"min"` (floor)                             |
+| `limit`                   | float     | The threshold value                                          |
+| `applies_to_tiers`        | list[str] | Optional — only check this rule for these tiers              |
+| `applies_when_horizon_lt` | int       | Optional — only check if horizon < this value                |
 
 ### Why YAML, not hardcoded Python?
 

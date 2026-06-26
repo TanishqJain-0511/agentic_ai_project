@@ -120,12 +120,12 @@ def _risk_tier(score: int) -> str:
     return "Riskiest"
 ```
 
-| Score | Tier | Typical investor |
-|-------|------|-----------------|
-| 0–25  | Safest | Age 55+, short horizon, variable income, capital preservation goal |
-| 26–50 | Safer | Middle-aged, medium horizon, stable income, balanced goal |
-| 51–75 | Riskier | 30s-40s, 7+ year horizon, stable income, growth goal |
-| 76–100 | Riskiest | Under 30, 10+ year horizon, stable income, aggressive growth |
+| Score  | Tier     | Typical investor                                                   |
+|--------|----------|--------------------------------------------------------------------|
+| 0–25   | Safest   | Age 55+, short horizon, variable income, capital preservation goal |
+| 26–50  | Safer    | Middle-aged, medium horizon, stable income, balanced goal          |
+| 51–75  | Riskier  | 30s-40s, 7+ year horizon, stable income, growth goal               |
+| 76–100 | Riskiest | Under 30, 10+ year horizon, stable income, aggressive growth       |
 
 These tiers feed directly into Phase 5's allocation lookup table.
 

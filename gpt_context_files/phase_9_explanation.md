@@ -4,9 +4,11 @@
 
 ## What is this phase doing conceptually?
 
-Phase 7 built a LangGraph agent where the **LLM** decides which tools to call. Phase 9 builds a LangGraph agent where **no LLM is involved** — every decision is deterministic.
+Phase 7 built a LangGraph agent where the **LLM** decides which tools to call. Phase 9 builds a LangGraph agent where
+**no LLM is involved** — every decision is deterministic.
 
-The compliance agent solves a real problem: Phase 5's allocation might violate the SEBI-inspired rules from Phase 8. Calling Phase 5 then Phase 8 and hoping for the best isn't enough — if violations exist, someone has to fix them. Phase 9 is that someone.
+The compliance agent solves a real problem: Phase 5's allocation might violate the SEBI-inspired rules from Phase 8. 
+Calling Phase 5 then Phase 8 and hoping for the best isn't enough — if violations exist, someone has to fix them. Phase 9 is that someone.
 
 The agent runs a **convergence loop**:
 1. Compute allocation (Phase 5 logic)
@@ -20,21 +22,22 @@ This embodies "rules decide" — the entire compliance workflow is a state machi
 
 ## How Phase 9 compares to Phase 7
 
-| | Phase 7 (Fund Research) | Phase 9 (Compliance) |
-|---|---|---|
-| Has LLM? | Yes — ChatOllama | No — pure deterministic |
-| State | `messages: List[BaseMessage]` | Full typed state dict |
-| Loop driver | LLM's `tool_calls` output | Deterministic violation check |
-| Node count | 2 (agent + tools) | 3 (compute + check + fix) |
-| Exit condition | LLM returns plain text | violations=[] OR max iterations |
-| DB access? | Yes (via tool closures) | Yes (node 1 reads risk tier) |
-| Non-deterministic? | Yes (LLM output varies) | No (same inputs → same output) |
+|                    | Phase 7 (Fund Research)       | Phase 9 (Compliance)            |
+|--------------------|-------------------------------|---------------------------------|
+| Has LLM?           | Yes — ChatOllama              | No — pure deterministic         |
+| State              | `messages: List[BaseMessage]` | Full typed state dict           |
+| Loop driver        | LLM's `tool_calls` output     | Deterministic violation check   |
+| Node count         | 2 (agent + tools)             | 3 (compute + check + fix)       |
+| Exit condition     | LLM returns plain text        | violations=[] OR max iterations |
+| DB access?         | Yes (via tool closures)       | Yes (node 1 reads risk tier)    |
+| Non-deterministic? | Yes (LLM output varies)       | No (same inputs → same output)  |
 
 ---
 
 ## ComplianceState — Typed Dict, Not Message List
 
-Phase 7's state was just `{"messages": [...]}`. Phase 9's state carries multiple typed fields representing the full portfolio state at each iteration:
+Phase 7's state was just `{"messages": [...]}`. Phase 9's state carries multiple typed fields representing 
+the full portfolio state at each iteration:
 
 ```python
 class ComplianceState(TypedDict):
@@ -49,11 +52,14 @@ class ComplianceState(TypedDict):
     passed: bool
 ```
 
-Every node receives the entire state and returns only the fields it updates. LangGraph merges the returned dict into the current state.
+Every node receives the entire state and returns only the fields it updates. LangGraph merges the returned 
+dict into the current state.
 
-Unlike Phase 7's `Annotated[List, operator.add]` (message accumulation), Phase 9's fields are **replaced** on each update — there's no custom reducer. A node returning `{"equity_pct": 30.0}` replaces the old `equity_pct` value entirely.
+Unlike Phase 7's `Annotated[List, operator.add]` (message accumulation), Phase 9's fields are **replaced** on each 
+update — there's no custom reducer. A node returning `{"equity_pct": 30.0}` replaces the old `equity_pct` value entirely.
 
-`iteration` is a counter that increments in `check_compliance_node`. `passed` is updated after each policy check. `violations` is the list of violations from the last check — the fix node reads it to know what to repair.
+`iteration` is a counter that increments in `check_compliance_node`. `passed` is updated after each policy check. 
+`violations` is the list of violations from the last check — the fix node reads it to know what to repair.
 
 ---
 
@@ -67,7 +73,7 @@ check_compliance_node
     ↓
 route_after_check()
     │
-    ├─ "done" (passed=True OR iteration≥5) ──► END
+    ├─ "done" (passed = True OR iteration ≥ 5) ──► END
     │
     └─ "fix" (violations remain) ──► fix_allocation_node
                                             ↓
@@ -107,9 +113,12 @@ async def compute_allocation_node(state: ComplianceState) -> dict:
     return {"equity_pct": equity, "debt_pct": debt, "gold_pct": gold, "risk_tier": risk_tier}
 ```
 
-This replicates Phase 5's `compute_allocation` logic exactly — reads risk tier from DB, looks up base allocation, applies horizon cap. It's an `async def` because it awaits a DB query.
+This replicates Phase 5's `compute_allocation` logic exactly — reads risk tier from DB, looks up base allocation, 
+applies horizon cap. It's an `async def` because it awaits a DB query.
 
-Why duplicate Phase 5's logic instead of calling `compute_allocation` directly? Because `compute_allocation` is a standalone service function that takes a `data: AllocationRequest` object. Inside the agent, we have the state dict — calling the service would require constructing a schema object. The duplication is intentional for clarity.
+Why duplicate Phase 5's logic instead of calling `compute_allocation` directly? Because `compute_allocation` is a 
+standalone service function that takes a `data: AllocationRequest` object. Inside the agent, we have the state dict — 
+calling the service would require constructing a schema object. The duplication is intentional for clarity.
 
 The `db` captured via closure (same pattern as Phase 7):
 
@@ -140,13 +149,17 @@ def check_compliance_node(state: ComplianceState) -> dict:
     }
 ```
 
-This is a **sync** function (no `async def`) — Phase 8's `check_policy()` is synchronous (no I/O, pure computation). In LangGraph, sync nodes are allowed alongside async nodes.
+This is a **sync** function (no `async def`) — Phase 8's `check_policy()` is synchronous (no I/O, pure computation). 
+In LangGraph, sync nodes are allowed alongside async nodes.
 
-Constructs a `PolicyCheckRequest` from the current state, calls the policy engine, and returns updated `violations`, `passed`, and incremented `iteration`.
+Constructs a `PolicyCheckRequest` from the current state, calls the policy engine, and returns updated `violations`, 
+`passed`, and incremented `iteration`.
 
-`v.model_dump()` — converts `PolicyViolation` Pydantic objects to plain dicts for storage in the state (TypedDict requires serialisable values). The `fix_allocation_node` reads `v["asset"]`, `v["rule_type"]`, `v["limit"]` from these dicts.
+`v.model_dump()` — converts `PolicyViolation` Pydantic objects to plain dicts for storage in the state (TypedDict 
+requires serialisable values). The `fix_allocation_node` reads `v["asset"]`, `v["rule_type"]`, `v["limit"]` from these dicts.
 
-`"iteration": state["iteration"] + 1` — increments the counter. After `MAX_ITERATIONS = 5` checks, the router terminates even if violations remain.
+`"iteration": state["iteration"] + 1` — increments the counter. After `MAX_ITERATIONS = 5` checks, the router 
+terminates even if violations remain.
 
 ---
 
@@ -235,7 +248,8 @@ For `min` violations (asset below floor):
 - Take the shortfall from equity first (equity has the most room)
 - If equity is insufficient, take from gold/debt
 
-**Why equity as the primary source for mins?** Equity has the most slack — it's the largest allocation in most tiers. Taking from equity also tends to move the portfolio in a safer direction (less equity = safer), which rarely creates new violations.
+**Why equity as the primary source for mins?** Equity has the most slack — it's the largest allocation in most tiers. 
+Taking from equity also tends to move the portfolio in a safer direction (less equity = safer), which rarely creates new violations.
 
 **Floating-point defensive code**:
 
@@ -252,17 +266,23 @@ if total > 0 and abs(total - 100.0) > 0.01:
     gold   = round(100.0 - equity - debt, 2)
 ```
 
-`max(0.0, ...)` — clamps to zero. Multiple violations might push an asset below zero (e.g., taking from equity twice). This prevents negative allocations.
+`max(0.0, ...)` — clamps to zero. Multiple violations might push an asset below zero (e.g., taking from equity twice). 
+This prevents negative allocations.
 
-Normalisation — after multiple repairs, floating-point arithmetic can produce totals like 99.97 or 100.03. The normalisation step rescales all three to sum exactly to 100.
+Normalisation — after multiple repairs, floating-point arithmetic can produce totals like 99.97 or 100.03. 
+The normalisation step rescales all three to sum exactly to 100.
 
 ---
 
 ## Why MAX_ITERATIONS = 5?
 
-Each iteration is: 1 policy check + 1 fix. Each fix should resolve at least one violation. With 8 rules and 3 assets, the maximum meaningful violations in a single check is ~5–6. So 5 iterations is sufficient for any realistic allocation.
+Each iteration is: 1 policy check + 1 fix. Each fix should resolve at least one violation. 
+With 8 rules and 3 assets, the maximum meaningful violations in a single check is ~5–6. 
+So 5 iterations is sufficient for any realistic allocation.
 
-The cap also protects against pathological inputs where violations conflict with each other (e.g., a rule requiring equity > 50% and another requiring equity < 30% — impossible to satisfy both). In such cases, the agent terminates and `converged = False` in the response.
+The cap also protects against pathological inputs where violations conflict with each other 
+(e.g., a rule requiring equity > 50% and another requiring equity < 30% — impossible to satisfy both). 
+In such cases, the agent terminates and `converged = False` in the response.
 
 ---
 
@@ -286,7 +306,10 @@ graph.add_edge("fix_allocation", "check_compliance")     # always: fix → check
 return graph.compile()
 ```
 
-`add_conditional_edges` with a mapping dict is Phase 9's addition vs Phase 7. In Phase 7, `should_continue` returned either `"tools"` or `END` directly. Here, the router returns `"done"` or `"fix"` — the mapping translates those to actual node names (or `END`). This is cleaner than having the router function know about `END`.
+`add_conditional_edges` with a mapping dict is Phase 9's addition vs Phase 7. 
+In Phase 7, `should_continue` returned either `"tools"` or `END` directly. 
+Here, the router returns `"done"` or `"fix"` — the mapping translates those to actual node names (or `END`). 
+This is cleaner than having the router function know about `END`.
 
 ---
 
@@ -311,9 +334,11 @@ async def run_compliance_agent(db: AsyncSession, data: ComplianceRequest) -> Com
     result = await agent.ainvoke(initial_state)
 ```
 
-Initial state zeros — `compute_allocation_node` overwrites them in the first step. `iteration=0` and `passed=False` are the starting conditions for the router.
+Initial state zeros — `compute_allocation_node` overwrites them in the first step. `iteration=0` and `passed=False` 
+are the starting conditions for the router.
 
-`await agent.ainvoke(initial_state)` — async invocation. Phase 7 used `.ainvoke()` too. Returns the final state dict after the graph terminates.
+`await agent.ainvoke(initial_state)` — async invocation. Phase 7 used `.ainvoke()` too. 
+Returns the final state dict after the graph terminates.
 
 ```python
     return ComplianceResponse(
@@ -329,7 +354,8 @@ Initial state zeros — `compute_allocation_node` overwrites them in the first s
     )
 ```
 
-`converged` in the response is the same as `passed`. `converged=False` means the agent hit MAX_ITERATIONS without finding a clean allocation — the caller should treat the result as approximate.
+`converged` in the response is the same as `passed`. `converged=False` means the agent hit MAX_ITERATIONS without 
+finding a clean allocation — the caller should treat the result as approximate.
 
 ---
 
@@ -384,4 +410,5 @@ run_compliance_agent(db, data)
 }
 ```
 
-Phase 5's horizon cap already produced a compliant allocation — the agent converges in a single iteration. A scenario requiring multiple iterations would occur if someone POSTed a manually-crafted allocation that violates multiple rules.
+Phase 5's horizon cap already produced a compliant allocation — the agent converges in a single iteration. 
+A scenario requiring multiple iterations would occur if someone POSTed a manually-crafted allocation that violates multiple rules.
