@@ -1,20 +1,48 @@
+# Core API
 fastapi
 uvicorn
+pydantic
+pydantic-settings
+email-validator
+python-dotenv
+
+# Database
 sqlalchemy
 asyncpg
-python-dotenv
 alembic
-pydantic
-email-validator
-pydantic-settings
-requests
-pyyaml
+pgvector
+
+# HTTP clients
 httpx
-langgraph
+requests
+
+# Config / serialization
+pyyaml
+
+# Auth (Phase 14+)
+python-jose[cryptography]
+passlib[bcrypt]
+
+# LLM / Agents
 langchain
 langchain-core
 langchain-ollama
+langgraph
+
+# Embeddings
+sentence-transformers
+
+# Simulation / data
 numpy
 scipy
-sentence-transformers
-pgvector
+pandas
+openpyxl
+
+# Background tasks (Phase 14)
+celery
+redis
+
+# Observability / evaluation (Phase 15)
+langfuse
+ragas
+deepeval

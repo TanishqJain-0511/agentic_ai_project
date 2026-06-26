@@ -103,13 +103,13 @@ flowchart TD
          │
          │  browser  localhost:8501
          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  STREAMLIT FRONTEND                                              │
-│                                                                  │
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  STREAMLIT FRONTEND                                                              │
+│                                                                                  │
 │  [🏠 Home] → [📊 Financial] → [🎯 Risk] → [📈 Alloc] → [🔢 Sim] → [💬 Explain]  │
-│   Create         Profile        Assessment  Compliance  Monte      Ollama    │
-│   / Load User    + Health       + Score     Agent       Carlo      Narration │
-└──────────────────────────────────────────────────────────────────┘
+│   Create         Profile        Assessment  Compliance  Monte      Ollama        │
+│   / Load User    + Health       + Score     Agent       Carlo      Narration     │
+└──────────────────────────────────────────────────────────────────────────────────┘
          │
          │  HTTP  api_client.py  localhost:8000
          ▼

@@ -4,7 +4,9 @@
 
 ## What is this phase doing conceptually?
 
-All phases so far compute with structured data: numbers in database columns, fixed questionnaire answers, JSON fields. Phase 11 introduces **unstructured text** — the ability to store and semantically search through documents like SEBI circulars, AMC fact sheets, or financial education content.
+All phases so far compute with structured data: numbers in database columns, fixed questionnaire answers, JSON fields. 
+Phase 11 introduces **unstructured text** — the ability to store and semantically search through 
+documents like SEBI circulars, AMC fact sheets, or financial education content.
 
 RAG stands for **Retrieval-Augmented Generation**. The pattern:
 1. **Ingest**: split a document into chunks, embed each chunk as a vector, store in a vector database
@@ -17,9 +19,12 @@ Phase 11 implements steps 1 and 2. Step 3 (generation) is Phase 12's domain.
 
 ## Why RAG? Why not just stuff everything into the LLM prompt?
 
-LLMs have context window limits (e.g., 8K tokens for `llama3.2:3b`). A SEBI circular can be 50 pages. You can't fit it all in the prompt. RAG solves this by only retrieving the **relevant chunks** (typically 3–5 out of hundreds) and injecting just those into the prompt.
+LLMs have context window limits (e.g., 8K tokens for `llama3.2:3b`). A SEBI circular can be 50 pages. 
+You can't fit it all in the prompt. RAG solves this by only retrieving the **relevant chunks** 
+(typically 3–5 out of hundreds) and injecting just those into the prompt.
 
-More importantly, RAG grounds the LLM's answers in real documents. Without RAG, the LLM hallucinates financial regulations. With RAG, it reads the actual rule text and cites it.
+More importantly, RAG grounds the LLM's answers in real documents. 
+Without RAG, the LLM hallucinates financial regulations. With RAG, it reads the actual rule text and cites it.
 
 ---
 
@@ -42,7 +47,8 @@ Three key technologies:
 
 ## Concept 1: What is an Embedding?
 
-An embedding is a vector (list of floats) that represents the **semantic meaning** of a piece of text. Similar texts have similar vectors (small cosine distance). Unrelated texts have dissimilar vectors.
+An embedding is a vector (list of floats) that represents the **semantic meaning** of a piece of text. 
+Similar texts have similar vectors (small cosine distance). Unrelated texts have dissimilar vectors.
 
 ```
 "What is the SIP investment limit?" → [0.12, -0.34, 0.78, 0.01, ..., 0.55]  (384 dims)
@@ -50,9 +56,12 @@ An embedding is a vector (list of floats) that represents the **semantic meaning
 "Recipe for chocolate cake"        → [0.89,  0.22, -0.41, 0.67, ..., -0.11] (far away)
 ```
 
-`BAAI/bge-small-en-v1.5` is a 384-dimensional model. Each chunk becomes a 384-float vector. These vectors are stored in PostgreSQL via pgvector.
+`BAAI/bge-small-en-v1.5` is a 384-dimensional model. Each chunk becomes a 384-float vector. 
+These vectors are stored in PostgreSQL via pgvector.
 
-**Why 384 dimensions?** The model was trained to produce 384-dim vectors. Larger models (like `e5-base`, 768-dim) give more nuanced representations but are slower. 384-dim is a good balance for a local, zero-cost deployment.
+**Why 384 dimensions?** The model was trained to produce 384-dim vectors. 
+Larger models (like `e5-base`, 768-dim) give more nuanced representations but are slower. 
+384-dim is a good balance for a local, zero-cost deployment.
 
 ---
 
@@ -63,7 +72,8 @@ pgvector is a PostgreSQL extension that adds:
 2. Vector distance operators: `<=>` (cosine), `<->` (L2/Euclidean), `<#>` (inner product)
 3. Vector indexes (IVFFlat, HNSW) for fast approximate nearest-neighbour search
 
-Without pgvector, you'd need a separate vector database (Pinecone, Weaviate, Qdrant). With pgvector, your existing PostgreSQL handles both structured data and vector search — fewer infrastructure components.
+Without pgvector, you'd need a separate vector database (Pinecone, Weaviate, Qdrant). 
+With pgvector, your existing PostgreSQL handles both structured data and vector search — fewer infrastructure components.
 
 ### Enabling pgvector
 
